@@ -4,11 +4,13 @@ import express, { Application } from 'express';
 import rateLimiter from 'express-rate-limit';
 import helmet from 'helmet';
 import hpp from 'hpp';
-import serverError from './middleware/serverError.middleware';
+import mongoose from 'mongoose';
 import morgan from 'morgan';
 import CONFIG from './core/config';
 import compressionMiddleware from './middleware/compression.middleware';
 import routeNotFound from './middleware/routeNotFound.middleware';
+import serverError from './middleware/serverError.middleware';
+import routes from './routes';
 
 // Express instance
 const app: Application = express();
@@ -49,15 +51,23 @@ app.use(compressionMiddleware);
 // Serve static Files
 app.use(express.static('public'));
 
-app.listen(CONFIG.server.port, () => {
-  console.log(
-    `🚀 API Server listening on, :${CONFIG.server.port}/api/v1/health-check`
-  );
+// Connect To DB
+mongoose
+  .connect(CONFIG.server.mongoUrl)
+  .then(() => {
+    app.listen(CONFIG.server.port, () => {
+      console.log(
+        `🚀 API Server listening on, :${CONFIG.server.port}/api/v1/health-check`
+      );
 
-  // mount api routes
-  // app.use('/api/v1', routes);
-  // 404 route not found
-  app.use(routeNotFound);
-  // 500 errors
-  app.use(serverError);
-});
+      // mount api routes
+      app.use('/api/v1', routes);
+      // 404 route not found
+      app.use(routeNotFound);
+      // 500 errors
+      app.use(serverError);
+    });
+  })
+  .catch((error: Error) => {
+    console.log(`Error connecting to DB\n${error}`);
+  });
